@@ -1,49 +1,40 @@
 import express from "express";
-import { WebSocket, WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import http from "http";
-import cors from "cors";
+import path from "path";
 
-// Create Express app
 const app = express();
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 
-app.use(cors());
-
-// Add a test route to confirm server is live
+// Simple HTTP GET route
 app.get("/", (req, res) => {
   res.send("Backend is up and running!");
 });
 
-// Create HTTP server from Express
 const server = http.createServer(app);
-
-// Attach WebSocket server
 const wss = new WebSocketServer({ server });
 
+// === Your WebSocket logic ===
 interface userInterface {
   socket: WebSocket;
   room: string;
   username: string;
 }
-
 const allSockets: userInterface[] = [];
 
 wss.on("connection", (socket) => {
-  console.log("✅ WebSocket connection established!");
+  console.log("WebSocket connection established!");
 
   socket.on("message", (message) => {
     const parsedMessage = JSON.parse(message.toString());
-    console.log(`📨 message received: ${parsedMessage.type}`);
 
     if (parsedMessage.type === "join") {
-      const room = parsedMessage.payload.roomId;
-      const username = parsedMessage.payload.username;
+      const { roomId, username } = parsedMessage.payload;
+      allSockets.push({ socket, room: roomId, username });
+      console.log(`${username} joined room: ${roomId}`);
 
-      allSockets.push({ socket, room, username });
-      console.log(`👤 ${username} joined ${room}`);
-
-      broadcastToRoom(room, `${username} has joined the room!`, socket);
-      featureUsernames(room);
+      broadcastToRoom(roomId, `${username} has joined the room!`, socket);
+      featureUsernames(roomId);
     }
 
     if (parsedMessage.type === "chat") {
@@ -52,7 +43,6 @@ wss.on("connection", (socket) => {
 
       const timestamp = new Date().toLocaleTimeString();
       const formattedMessage = `${user.username} [${timestamp}]: ${parsedMessage.payload.message}`;
-
       broadcastToRoom(user.room, formattedMessage);
     }
 
@@ -60,7 +50,7 @@ wss.on("connection", (socket) => {
       const user = allSockets.find((u) => u.socket === socket);
       if (!user) return;
 
-      broadcastToRoom(user.room, `${user.username} is typing...`, socket); // exclude sender
+      broadcastToRoom(user.room, `${user.username} is typing...`, user.socket);
     }
   });
 });
@@ -72,9 +62,7 @@ function broadcastToRoom(room: string, message: string, excludeSocket?: WebSocke
 }
 
 function featureUsernames(room: string) {
-  const usernames = allSockets
-    .filter((u) => u.room === room)
-    .map((u) => u.username);
+  const usernames = allSockets.filter((u) => u.room === room).map((u) => u.username);
 
   const userListMessage = JSON.stringify({
     type: "user-list",
@@ -88,7 +76,7 @@ function featureUsernames(room: string) {
     .forEach((u) => u.socket.send(userListMessage));
 }
 
-// Start server
+// Start the HTTP + WebSocket server
 server.listen(PORT, () => {
-  console.log(` Server is running on port ${PORT}`);
+  console.log(`Server listening on port ${PORT}`);
 });
