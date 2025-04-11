@@ -14,13 +14,12 @@ function App() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
-
+  const hasSentTyping = useRef(false);
 
   useEffect(() => {
     if (!joined) return;
 
     const ws = new WebSocket("wss://chatapp-kzfk.onrender.com");
-
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -83,13 +82,14 @@ function App() {
   };
 
   const sendTyping = () => {
-    if (wsRef.current) {
+    if (!hasSentTyping.current && wsRef.current) {
       wsRef.current.send(
         JSON.stringify({
           type: "typing",
           payload: { username },
         })
       );
+      hasSentTyping.current = true;
     }
   };
 
@@ -193,11 +193,24 @@ function App() {
           className="flex-1 border px-4 py-2"
           placeholder="Type a message"
           onKeyDown={(e) => {
-            if (e.key === "Enter") sendMessage();
-            else sendTyping();
+            if (e.key === "Enter") {
+              sendMessage();
+              hasSentTyping.current = false;
+              if (wsRef.current) {
+                wsRef.current.send(
+                  JSON.stringify({
+                    type: "stop-typing",
+                    payload: { username },
+                  })
+                );
+              }
+            } else {
+              sendTyping();
+            }
           }}
           onFocus={sendTyping}
           onBlur={() => {
+            hasSentTyping.current = false;
             if (wsRef.current) {
               wsRef.current.send(
                 JSON.stringify({
