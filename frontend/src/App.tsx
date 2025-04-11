@@ -18,7 +18,8 @@ function App() {
   useEffect(() => {
     if (!joined) return;
 
-    const ws = new WebSocket("ws://localhost:8080");
+    const ws = new WebSocket("wss://chatapp-backend.onrender.com");
+
     wsRef.current = ws;
 
     ws.onopen = () => {
