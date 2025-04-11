@@ -10,7 +10,7 @@ function App() {
   const [joined, setJoined] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
   const [users, setUsers] = useState<string[]>([]);
-  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [typingStatus, setTypingStatus] = useState<string | null>(null); 
 
   const inputRef = useRef<HTMLInputElement>(null);
   const wsRef = useRef<WebSocket>();
@@ -18,8 +18,7 @@ function App() {
   useEffect(() => {
     if (!joined) return;
 
-    const ws = new WebSocket("wss://chatapp-backend.onrender.com");
-
+    const ws = new WebSocket("ws://localhost:8080");
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -52,17 +51,13 @@ function App() {
 
         if (data.type === "typing") {
           if (data.payload.username !== username) {
-            setTypingUsers((prev) => new Set(prev).add(data.payload.username));
+            setTypingStatus(`${data.payload.username} is typing...`);
           }
         }
 
         if (data.type === "stop-typing") {
           if (data.payload.username !== username) {
-            setTypingUsers((prev) => {
-              const updated = new Set(prev);
-              updated.delete(data.payload.username);
-              return updated;
-            });
+            setTypingStatus(null);
           }
         }
       } catch (err) {
@@ -76,8 +71,8 @@ function App() {
   }, [joined]);
 
   const sendMessage = () => {
-    const message = inputRef.current?.value;
-    if (message && wsRef.current) {
+    if (inputRef.current && inputRef.current.value && wsRef.current) {
+      const message = inputRef.current.value;
       wsRef.current.send(
         JSON.stringify({
           type: "chat",
@@ -186,14 +181,8 @@ function App() {
               </span>
             </div>
           ))}
-
-          {/* Typing Indicator */}
-          {[...typingUsers].length > 0 && (
-            <div className="text-sm text-gray-400 mt-2">
-              {[...typingUsers].map((u) => (
-                <div key={u}>{u} is typing...</div>
-              ))}
-            </div>
+          {typingStatus && (
+            <div className="text-gray-400 italic mt-2">{typingStatus}</div>
           )}
         </div>
       </div>
