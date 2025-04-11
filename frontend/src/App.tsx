@@ -10,10 +10,11 @@ function App() {
   const [joined, setJoined] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
   const [users, setUsers] = useState<string[]>([]);
-  const [typingStatus, setTypingStatus] = useState<string | null>(null); 
+  const [typingStatus, setTypingStatus] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const wsRef = useRef<WebSocket>();
+  const wsRef = useRef<WebSocket | null>(null);
+
 
   useEffect(() => {
     if (!joined) return;
@@ -25,10 +26,7 @@ function App() {
       ws.send(
         JSON.stringify({
           type: "join",
-          payload: {
-            roomId,
-            username,
-          },
+          payload: { roomId, username },
         })
       );
     };
@@ -68,7 +66,7 @@ function App() {
     return () => {
       ws.close();
     };
-  }, [joined]);
+  }, [joined, roomId, username]);
 
   const sendMessage = () => {
     const message = inputRef.current?.value;
@@ -76,17 +74,23 @@ function App() {
       wsRef.current.send(
         JSON.stringify({
           type: "chat",
-          payload: {
-            message,
-          },
+          payload: { message },
         })
       );
-      if (inputRef.current) {
-        inputRef.current.value = "";
-      }
+      if (inputRef.current) inputRef.current.value = "";
     }
   };
-  
+
+  const sendTyping = () => {
+    if (wsRef.current) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: "typing",
+          payload: { username },
+        })
+      );
+    }
+  };
 
   if (!joined) {
     return (
@@ -177,7 +181,7 @@ function App() {
             </div>
           ))}
           {typingStatus && (
-            <div className="text-gray-400 italic mt-2">{typingStatus}</div>
+            <div className="italic text-gray-400 mt-2">{typingStatus}</div>
           )}
         </div>
       </div>
@@ -189,26 +193,18 @@ function App() {
           placeholder="Type a message"
           onKeyDown={(e) => {
             if (e.key === "Enter") sendMessage();
+            else sendTyping();
           }}
-          onFocus={() => {
-            wsRef.current?.send(
-              JSON.stringify({
-                type: "typing",
-                payload: {
-                  username,
-                },
-              })
-            );
-          }}
+          onFocus={sendTyping}
           onBlur={() => {
-            wsRef.current?.send(
-              JSON.stringify({
-                type: "stop-typing",
-                payload: {
-                  username,
-                },
-              })
-            );
+            if (wsRef.current) {
+              wsRef.current.send(
+                JSON.stringify({
+                  type: "stop-typing",
+                  payload: { username },
+                })
+              );
+            }
           }}
         />
         <button
