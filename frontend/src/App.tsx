@@ -71,8 +71,8 @@ function App() {
   }, [joined]);
 
   const sendMessage = () => {
-    if (inputRef.current && inputRef.current.value && wsRef.current) {
-      const message = inputRef.current.value;
+    const message = inputRef.current?.value;
+    if (message && wsRef.current) {
       wsRef.current.send(
         JSON.stringify({
           type: "chat",
@@ -81,17 +81,12 @@ function App() {
           },
         })
       );
-      inputRef.current.value = "";
-      wsRef.current.send(
-        JSON.stringify({
-          type: "stop-typing",
-          payload: {
-            username,
-          },
-        })
-      );
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
     }
   };
+  
 
   if (!joined) {
     return (
